@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Multan Live Dashboard: Air, Weather & News</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#EEF3F7; --surface:#FFFFFF; --ink:#14263F; --muted:#5A6B80; --line:#D5DEE8;
+  --cobalt:#1F4E8C; --tile:#1E9AA8; --ochre:#C0802A; --tilebg:#E3F1F3; --up:#C2410C; --down:#0F7A8A;
+  --display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  --body:"Atkinson Hyperlegible",ui-sans-serif,system-ui,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#0D1828; --surface:#14233A; --ink:#E6EEF7; --muted:#9AAEC4; --line:#24385A;
+    --cobalt:#7FB0F0; --tile:#4CC7D4; --ochre:#E2A54E; --tilebg:#123344; --up:#F59E6B; --down:#5FD3E0;
+    color-scheme:dark;
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.5}
+.wrap{max-width:1240px;margin:0 auto;padding:24px 20px 48px}
+.band{height:10px;background:
+  repeating-linear-gradient(45deg,var(--cobalt) 0 6px,transparent 6px 12px),
+  repeating-linear-gradient(-45deg,var(--tile) 0 6px,transparent 6px 12px);opacity:.85}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px;margin:20px 0 18px}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(2.6rem,7vw,4.5rem);line-height:.95;margin:0;letter-spacing:-.02em;color:var(--cobalt)}
+.sub{color:var(--muted);margin-top:6px}
+.meta{text-align:right;color:var(--muted);font-size:.92rem}
+.clock{font-family:var(--display);font-size:1.6rem;font-weight:700;color:var(--ink)}
+button{font:inherit;font-weight:700;background:var(--cobalt);color:var(--surface);border:0;border-radius:8px;padding:9px 16px;cursor:pointer;margin-top:8px}
+button:focus-visible,a:focus-visible{outline:3px solid var(--tile);outline-offset:2px}
+button[disabled]{opacity:.6;cursor:wait}
+h2{font-family:var(--display);font-weight:700;font-size:1.35rem;margin:0 0 12px}
+h3{font-family:var(--display);font-weight:700;font-size:1.05rem;margin:14px 0 8px}
+section{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;min-width:0}
+.grid{display:grid;gap:18px}
+.hero{grid-template-columns:1.25fr 1fr}
+.two{grid-template-columns:1fr 1fr}
+.three{grid-template-columns:repeat(3,1fr)}
+.newsgrid{grid-template-columns:2fr 1fr}
+@media (max-width:900px){.hero,.two,.three,.newsgrid{grid-template-columns:1fr}}
+.mt{margin-top:18px}
+a{color:var(--cobalt)}
+
+/* change strip */
+.changes{background:var(--tilebg);border-radius:12px;padding:12px 16px;display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;font-size:.95rem}
+.changes b{font-family:var(--display)}
+.chg{white-space:nowrap}
+.up{color:var(--up);font-weight:700}
+.down{color:var(--down);font-weight:700}
+.same{color:var(--muted)}
+.d{font-size:.78rem;font-weight:700;margin-left:4px}
+
+/* AQI hero */
+.aqi{position:relative;overflow:hidden;border:0;color:#fff;background:var(--aqi-c,#557)}
+.aqi .num{font-family:var(--display);font-weight:800;font-size:clamp(5rem,14vw,8.5rem);line-height:.9;letter-spacing:-.04em}
+.aqi .cat{font-family:var(--display);font-size:1.6rem;font-weight:700;margin-top:6px}
+.aqi p{max-width:52ch;margin:10px 0 0}
+.aqi .euro{opacity:.9;font-size:.95rem;margin-top:10px}
+.aqi .d{color:inherit}
+.scale{display:flex;height:12px;border-radius:6px;overflow:hidden;margin-top:18px;position:relative;background:rgba(255,255,255,.2)}
+.scale span{flex:1}
+.marker{position:absolute;top:-5px;width:4px;height:22px;background:#fff;border-radius:2px;box-shadow:0 0 0 2px rgba(0,0,0,.35)}
+.aqi-dark{color:#1d1d1d}
+.aqi-dark .marker{background:#1d1d1d;box-shadow:0 0 0 2px rgba(255,255,255,.6)}
+
+.now{display:flex;align-items:center;gap:16px}
+.now .icon{font-size:4rem;line-height:1}
+.now .t{font-family:var(--display);font-weight:800;font-size:4rem;line-height:1}
+.facts{display:grid;grid-template-columns:repeat(2,1fr);gap:10px 18px;margin-top:16px}
+.facts.f3{grid-template-columns:repeat(3,1fr)}
+@media (max-width:520px){.facts.f3{grid-template-columns:repeat(2,1fr)}}
+.facts div{border-top:1px solid var(--line);padding-top:8px}
+.facts b{display:block;font-size:1.05rem}
+.facts small{color:var(--muted)}
+
+.pols{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px}
+.pol{background:var(--tilebg);border-radius:10px;padding:12px 14px}
+.pol .name{font-weight:700}
+.pol .val{font-family:var(--display);font-size:1.7rem;font-weight:700}
+.pol .val small{font-family:var(--body);font-size:.8rem;font-weight:400;color:var(--muted)}
+.bar{height:6px;background:var(--line);border-radius:3px;margin-top:6px;overflow:hidden}
+.bar i{display:block;height:100%;border-radius:3px}
+.pol .note{font-size:.82rem;color:var(--muted);margin-top:4px}
+
+.chartbox{position:relative;height:270px}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:640px}
+th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:700;font-size:.9rem}
+td.ic{font-size:1.4rem}
+.rain{color:var(--tile);font-weight:700}
+.vs td:nth-child(n+2){font-variant-numeric:tabular-nums}
+
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;margin:0}
+.kv dt{color:var(--muted)}
+.kv dd{margin:0;font-weight:700}
+
+/* news */
+.news{list-style:none;margin:0;padding:0}
+.news li{padding:12px 0;border-bottom:1px solid var(--line)}
+.news li:last-child{border-bottom:0}
+.news a{font-weight:700;text-decoration:none;color:var(--ink)}
+.news a:hover{text-decoration:underline;color:var(--cobalt)}
+.news .src{font-size:.85rem;color:var(--muted);margin-top:2px}
+.tag{display:inline-block;font-size:.75rem;font-weight:700;padding:1px 8px;border-radius:20px;background:var(--tilebg);color:var(--cobalt);margin-right:6px}
+.new{background:var(--ochre);color:#fff}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+.tabs button{background:transparent;color:var(--cobalt);border:1px solid var(--line);margin:0;padding:6px 12px;font-size:.9rem}
+.tabs button[aria-pressed="true"]{background:var(--cobalt);color:var(--surface);border-color:var(--cobalt)}
+
+.wiki img{float:right;max-width:140px;border-radius:8px;margin:0 0 10px 14px}
+.wiki p{margin:0;max-width:70ch}
+.rates{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px}
+.rate{border:1px solid var(--line);border-radius:10px;padding:10px}
+.rate b{font-family:var(--display);font-size:1.3rem;display:block}
+.rate small{color:var(--muted)}
+.err{color:var(--ochre);font-weight:700}
+.loading{color:var(--muted)}
+.log{font-size:.88rem;color:var(--muted);max-height:180px;overflow:auto;margin:0;padding-left:18px}
+footer{color:var(--muted);font-size:.88rem;margin-top:28px}
+@media (prefers-reduced-motion:no-preference){.aqi{transition:background .6s ease}.flash{animation:fl 1.6s ease}@keyframes fl{0%{background:var(--tilebg)}100%{background:transparent}}}
+</style>
+</head>
+<body>
+<div class="band" aria-hidden="true"></div>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Multan</h1>
+      <div class="sub">Punjab, Pakistan &nbsp;|&nbsp; 30.1575° N, 71.5249° E &nbsp;|&nbsp; <span id="elev">elevation…</span></div>
+    </div>
+    <div class="meta">
+      <div class="clock" id="clock">--:--</div>
+      <div>Local time (PKT)</div>
+      <div id="updated">Fetching live data…</div>
+      <div id="countdown"></div>
+      <button id="refresh" type="button">Refresh now</button>
+    </div>
+  </header>
+
+  <div class="changes" id="changes" aria-live="polite"><b>Since last refresh:</b> <span class="same">first load, changes will show after the next refresh.</span></div>
+
+  <div id="offline" class="mt" hidden style="background:var(--ochre);color:#fff;border-radius:12px;padding:14px 18px">
+    <b style="font-family:var(--display);font-size:1.15rem">No source could be reached.</b>
+    If you’re viewing this inside the Claude chat preview, it runs in a sandbox that blocks outside websites, so no data can load here.
+    Download the file and open it in Chrome, Edge or Firefox. If you’re already in a normal browser, check your internet connection and select Refresh now.
+  </div>
+
+  <div id="previewMode" class="mt" hidden style="background:var(--tile);color:#fff;border-radius:12px;padding:14px 18px">
+    <b style="font-family:var(--display);font-size:1.15rem">Preview mode: live data via Claude web search.</b>
+    This viewer blocks the free weather APIs, so the dashboard asked Claude to search the web for Multan’s current weather, air quality, forecast and news instead.
+    Values come from the sites named under each section. Hourly charts and the detailed atmosphere data need the downloaded file opened in a normal browser.
+  </div>
+
+  <div class="grid hero mt">
+    <section class="aqi" id="aqiCard">
+      <h2>Air quality right now</h2>
+      <div class="num" id="aqiNum">–</div>
+      <div class="cat" id="aqiCat">Loading…</div>
+      <p id="aqiAdvice"></p>
+      <div class="euro" id="aqiEuro"></div>
+      <div class="scale" aria-hidden="true">
+        <span style="background:#00e400"></span><span style="background:#ffff00"></span><span style="background:#ff7e00"></span>
+        <span style="background:#ff0000"></span><span style="background:#8f3f97"></span><span style="background:#7e0023"></span>
+        <div class="marker" id="aqiMarker" style="left:0"></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Weather now (Open-Meteo)</h2>
+      <div class="now">
+        <div class="icon" id="wIcon">⛅</div>
+        <div>
+          <div class="t" id="wTemp">–</div>
+          <div id="wDesc" class="loading">Loading…</div>
+        </div>
+      </div>
+      <div class="facts" id="wFacts"></div>
+    </section>
+  </div>
+
+  <div class="grid two mt">
+    <section>
+      <h2>Second source: wttr.in</h2>
+      <div class="now">
+        <div class="icon" id="wtIcon">🌡️</div>
+        <div>
+          <div class="t" id="wtTemp">–</div>
+          <div id="wtDesc" class="loading">Loading…</div>
+        </div>
+      </div>
+      <div class="facts" id="wtFacts"></div>
+    </section>
+    <section>
+      <h2>How the two sources compare</h2>
+      <div class="scroll"><table class="vs" id="vs" style="min-width:0"><tbody><tr><td class="loading">Waiting for both sources…</td></tr></tbody></table></div>
+      <h3>Moon tonight</h3>
+      <dl class="kv" id="moon"><dt class="loading">Loading…</dt></dl>
+    </section>
+  </div>
+
+  <section class="mt">
+    <h2>Atmosphere in detail, this hour</h2>
+    <div class="facts f3" id="atmo"><span class="loading">Loading…</span></div>
+  </section>
+
+  <section class="mt">
+    <h2>Pollutants and WHO guideline levels</h2>
+    <div class="pols" id="pols"><span class="loading">Loading pollutant data…</span></div>
+  </section>
+
+  <div class="grid two mt">
+    <section>
+      <h2>US AQI forecast, next 5 days</h2>
+      <div class="chartbox"><canvas id="aqiChart" aria-label="Hourly US AQI forecast"></canvas></div>
+    </section>
+    <section>
+      <h2>Temperature and rain chance, next 48 hours</h2>
+      <div class="chartbox"><canvas id="tempChart" aria-label="Hourly temperature and precipitation probability"></canvas></div>
+    </section>
+  </div>
+
+  <div class="grid two mt">
+    <section>
+      <h2>Three forecast models, next 3 days</h2>
+      <div class="chartbox"><canvas id="modelChart" aria-label="Temperature forecast by ECMWF, GFS and ICON models"></canvas></div>
+      <div class="sub" style="font-size:.85rem">European (ECMWF), American (GFS) and German (ICON) models. Where the lines split, the forecast is less certain.</div>
+    </section>
+    <section>
+      <h2>Past week and week ahead</h2>
+      <div class="chartbox"><canvas id="trendChart" aria-label="Daily high and low temperatures for the past 7 days and next 7 days"></canvas></div>
+    </section>
+  </div>
+
+  <section class="mt">
+    <h2>7-day forecast</h2>
+    <div class="scroll"><table id="daily"><tbody><tr><td class="loading">Loading forecast…</td></tr></tbody></table></div>
+  </section>
+
+  <div class="grid newsgrid mt">
+    <section>
+      <h2>Latest news</h2>
+      <div class="tabs" role="group" aria-label="Filter news">
+        <button type="button" data-f="all" aria-pressed="true">All</button>
+        <button type="button" data-f="Multan" aria-pressed="false">Multan</button>
+        <button type="button" data-f="Weather & smog" aria-pressed="false">Weather & smog</button>
+        <button type="button" data-f="Pakistan" aria-pressed="false">Pakistan</button>
+      </div>
+      <ul class="news" id="news"><li class="loading">Loading headlines…</li></ul>
+    </section>
+    <div class="grid" style="align-content:start">
+      <section>
+        <h2>Earthquakes within 1,000 km</h2>
+        <ul class="news" id="quakes"><li class="loading">Loading…</li></ul>
+      </section>
+      <section>
+        <h2>Refresh log</h2>
+        <ol class="log" id="log"></ol>
+      </section>
+    </div>
+  </div>
+
+  <div class="grid three mt">
+    <section>
+      <h2>Sun and sky today</h2>
+      <dl class="kv" id="sun"><dt class="loading">Loading…</dt></dl>
+    </section>
+    <section>
+      <h2>Pakistani rupee rates</h2>
+      <div class="rates" id="rates"><span class="loading">Loading…</span></div>
+      <div class="sub" id="ratesTime" style="font-size:.85rem"></div>
+    </section>
+    <section>
+      <h2>Pakistan at a glance</h2>
+      <dl class="kv" id="country"><dt class="loading">Loading…</dt></dl>
+    </section>
+  </div>
+
+  <section class="mt wiki">
+    <h2>About Multan</h2>
+    <div id="wiki" class="loading">Loading…</div>
+  </section>
+
+  <footer>
+    Auto-refreshes every 5 minutes. Free, keyless sources:
+    <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (weather, air quality, models, elevation),
+    <a href="https://wttr.in/" target="_blank" rel="noopener">wttr.in</a> (second weather source, moon),
+    <a href="https://news.google.com/" target="_blank" rel="noopener">Google News RSS</a> and <a href="https://www.dawn.com/" target="_blank" rel="noopener">Dawn RSS</a> via <a href="https://rss2json.com/" target="_blank" rel="noopener">rss2json</a>,
+    <a href="https://www.gdeltproject.org/" target="_blank" rel="noopener">GDELT</a>,
+    <a href="https://earthquake.usgs.gov/" target="_blank" rel="noopener">USGS</a>,
+    <a href="https://www.exchangerate-api.com/docs/free" target="_blank" rel="noopener">ExchangeRate-API</a>,
+    <a href="https://restcountries.com/" target="_blank" rel="noopener">REST Countries</a>,
+    <a href="https://en.wikipedia.org/wiki/Multan" target="_blank" rel="noopener">Wikipedia</a>.
+    Air quality values are model estimates (CAMS), not readings from a monitoring station in Multan.
+  </footer>
+</div>
+
+<script>
+const LAT = 30.1575, LON = 71.5249, TZ = "Asia/Karachi", REFRESH_MS = 5*60*1000;
+const $ = id => document.getElementById(id);
+const enc = encodeURIComponent;
+let charts = {}, prev = null, cur = {}, seenNews = new Set(), firstNewsLoad = true, newsItems = [], newsFilter = "all", nextAt = 0;
+
+const rss = u => `https://api.rss2json.com/v1/api.json?rss_url=${enc(u)}`;
+const gnews = q => rss(`https://news.google.com/rss/search?q=${enc(q)}&hl=en-PK&gl=PK&ceid=PK:en`);
+
+const URLS = {
+  weather: `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&timezone=${enc(TZ)}&forecast_days=7&past_days=7`
+    + `&current=temperature_2m,apparent_temperature,relative_humidity_2m,dew_point_2m,precipitation,weather_code,cloud_cover,pressure_msl,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m,is_day,visibility,uv_index`
+    + `&hourly=temperature_2m,precipitation_probability,cloud_cover_low,cloud_cover_mid,cloud_cover_high,shortwave_radiation,direct_radiation,diffuse_radiation,et0_fao_evapotranspiration,vapour_pressure_deficit,soil_temperature_0cm,soil_temperature_18cm,soil_moisture_0_to_1cm,cape,freezing_level_height,wind_speed_80m,wind_speed_120m,temperature_80m,boundary_layer_height`
+    + `&daily=weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,sunrise,sunset,daylight_duration,sunshine_duration,uv_index_max,precipitation_sum,precipitation_hours,precipitation_probability_max,wind_speed_10m_max,wind_gusts_10m_max,wind_direction_10m_dominant,shortwave_radiation_sum,et0_fao_evapotranspiration`,
+  models: `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&timezone=${enc(TZ)}&forecast_days=3&hourly=temperature_2m&models=ecmwf_ifs025,gfs_seamless,icon_seamless`,
+  air: `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${LAT}&longitude=${LON}&timezone=${enc(TZ)}&forecast_days=5`
+    + `&current=us_aqi,european_aqi,pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,sulphur_dioxide,ozone,dust,aerosol_optical_depth,ammonia,us_aqi_pm2_5,us_aqi_pm10,us_aqi_ozone,us_aqi_nitrogen_dioxide`
+    + `&hourly=us_aqi,pm2_5,pm10`,
+  wttr: `https://wttr.in/Multan?format=j1`,
+  elevation: `https://api.open-meteo.com/v1/elevation?latitude=${LAT}&longitude=${LON}`,
+  rates: `https://open.er-api.com/v6/latest/PKR`,
+  country: `https://restcountries.com/v3.1/alpha/PK?fields=name,capital,population,area,currencies,languages,timezones,borders,flag,idd`,
+  wiki: `https://en.wikipedia.org/api/rest_v1/page/summary/Multan`,
+  quakes: () => `https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&latitude=${LAT}&longitude=${LON}&maxradiuskm=1000&minmagnitude=2.5&orderby=time&limit=8&starttime=${new Date(Date.now()-30*864e5).toISOString().slice(0,10)}`,
+  news: [
+    ["Multan", gnews("Multan")],
+    ["Weather & smog", gnews("Multan OR Punjab smog OR weather OR air quality")],
+    ["Pakistan", rss("https://www.dawn.com/feeds/home")]
+  ],
+  gdelt: `https://api.gdeltproject.org/api/v2/doc/doc?query=${enc("multan")}&mode=artlist&maxrecords=15&format=json&sort=datedesc&timespan=7d`
+};
+
+const WMO = {
+  0:["Clear sky","☀️","🌙"],1:["Mainly clear","🌤️","🌙"],2:["Partly cloudy","⛅","☁️"],3:["Overcast","☁️","☁️"],
+  45:["Fog","🌫️"],48:["Freezing fog","🌫️"],51:["Light drizzle","🌦️"],53:["Drizzle","🌦️"],55:["Heavy drizzle","🌧️"],
+  56:["Freezing drizzle","🌧️"],57:["Freezing drizzle","🌧️"],61:["Light rain","🌦️"],63:["Rain","🌧️"],65:["Heavy rain","🌧️"],
+  66:["Freezing rain","🌧️"],67:["Freezing rain","🌧️"],71:["Light snow","🌨️"],73:["Snow","🌨️"],75:["Heavy snow","❄️"],
+  77:["Snow grains","🌨️"],80:["Light showers","🌦️"],81:["Showers","🌧️"],82:["Violent showers","⛈️"],
+  85:["Snow showers","🌨️"],86:["Heavy snow showers","❄️"],95:["Thunderstorm","⛈️"],96:["Thunderstorm with hail","⛈️"],99:["Severe thunderstorm with hail","⛈️"]
+};
+const wmo = (c, day=1) => { const w = WMO[c] || ["Unknown","❔"]; return { text:w[0], icon: (!day && w[2]) ? w[2] : w[1] }; };
+const wttrIcon = d => { d=(d||"").toLowerCase(); return /thunder/.test(d)?"⛈️":/snow|sleet/.test(d)?"🌨️":/rain|drizzle|shower/.test(d)?"🌧️":/fog|mist|haze|smoke|dust/.test(d)?"🌫️":/overcast/.test(d)?"☁️":/cloud/.test(d)?"⛅":/sun|clear/.test(d)?"☀️":"🌡️"; };
+
+const AQI_BANDS = [
+  [50,"Good","#00e400",true,"Air quality is satisfactory. A good time to be outdoors."],
+  [100,"Moderate","#ffff00",true,"Acceptable for most people. Unusually sensitive people should limit long or heavy outdoor exertion."],
+  [150,"Unhealthy for sensitive groups","#ff7e00",true,"Children, older adults and people with asthma or heart conditions should reduce long outdoor exertion."],
+  [200,"Unhealthy","#ff0000",false,"Everyone may feel effects. Limit time outdoors, keep windows closed and consider an N95/KN95 mask outside."],
+  [300,"Very unhealthy","#8f3f97",false,"Health alert. Avoid outdoor activity; run an air purifier indoors if you have one."],
+  [Infinity,"Hazardous","#7e0023",false,"Emergency conditions. Stay indoors with windows shut and avoid all outdoor exertion."]
+];
+const aqiBand = v => AQI_BANDS.find(b => v <= b[0]);
+const euroLabel = v => v<=20?"Good":v<=40?"Fair":v<=60?"Moderate":v<=80?"Poor":v<=100?"Very poor":"Extremely poor";
+
+const compass = d => ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"][Math.round(d/22.5)%16];
+const r = (v,d=0) => (v==null||v===""||isNaN(v)) ? "–" : Number(v).toFixed(d);
+const hm = iso => iso ? iso.slice(11,16) : "–";
+const dur = s => `${Math.floor(s/3600)} h ${Math.round((s%3600)/60)} min`;
+const esc = s => String(s??"").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const ago = t => { const m = Math.round((Date.now()-t)/60000); if(isNaN(m)) return ""; if(m<1) return "just now"; if(m<60) return `${m} min ago`; const h=Math.round(m/60); if(h<48) return `${h} h ago`; return `${Math.round(h/24)} days ago`; };
+const fail = (el, what) => { $(el).innerHTML = `<span class="err">Couldn’t load ${what} right now. It will retry on the next refresh.</span>`; };
+
+/* delta badge vs previous refresh */
+function delta(key, val, dec=1, unit=""){
+  cur[key] = val;
+  if(!prev || prev[key]==null || val==null || isNaN(val)) return "";
+  const diff = val - prev[key];
+  if(Math.abs(diff) < Math.pow(10,-dec)/2) return `<span class="d same" title="No change since last refresh">=</span>`;
+  return `<span class="d ${diff>0?"up":"down"}" title="Change since last refresh">${diff>0?"▲":"▼"}${Math.abs(diff).toFixed(dec)}${unit}</span>`;
+}
+
+async function getJSON(url, ms=15000){
+  // No AbortSignal: some viewers (like the chat preview) relay fetch through postMessage, which can't clone a signal.
+  let t;
+  const timeout = new Promise((_, rej) => { t = setTimeout(() => rej(new Error("Timed out after " + ms/1000 + " s")), ms); });
+  try{
+    const res = await Promise.race([fetch(url, {cache:"no-store"}), timeout]);
+    if(!res.ok) throw new Error(res.status + " " + res.statusText);
+    return await Promise.race([res.json(), timeout]);
+  } finally { clearTimeout(t); }
+}
+
+function tickClock(){
+  $("clock").textContent = new Intl.DateTimeFormat("en-GB",{timeZone:TZ,weekday:"short",hour:"2-digit",minute:"2-digit",second:"2-digit"}).format(new Date());
+  if(nextAt){ const s = Math.max(0, Math.round((nextAt-Date.now())/1000)); $("countdown").textContent = `Next refresh in ${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`; }
+}
+function css(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+function drawChart(key, canvasId, config){
+  const el = $(canvasId); if(!el) return;
+  if(typeof Chart === "undefined"){ el.replaceWith(Object.assign(document.createElement("p"),{className:"err",textContent:"The chart library didn’t load, so this chart can’t be drawn."})); return; }
+  if(charts[key]) charts[key].destroy();
+  Chart.defaults.color = css("--muted"); Chart.defaults.font.family = css("--body"); Chart.defaults.borderColor = css("--line");
+  charts[key] = new Chart(el, config);
+}
+
+/* ---------- Air quality ---------- */
+function renderAir(d){
+  const c = d.current, aqi = Math.round(c.us_aqi), b = aqiBand(aqi);
+  const card = $("aqiCard");
+  card.style.setProperty("--aqi-c", b[2]); card.classList.toggle("aqi-dark", b[3]);
+  $("aqiNum").innerHTML = `${aqi}${delta("aqi", aqi, 0)}`;
+  $("aqiCat").textContent = `US AQI: ${b[1]}`;
+  $("aqiAdvice").textContent = b[4];
+  const subs = [["PM2.5",c.us_aqi_pm2_5],["PM10",c.us_aqi_pm10],["Ozone",c.us_aqi_ozone],["NO₂",c.us_aqi_nitrogen_dioxide]].filter(x=>x[1]!=null);
+  const main = subs.sort((a,b)=>b[1]-a[1])[0];
+  $("aqiEuro").textContent = `European AQI ${Math.round(c.european_aqi)} (${euroLabel(c.european_aqi)})` + (main ? `. Main pollutant: ${main[0]}.` : "") + ` Model time ${hm(c.time)}.`;
+  $("aqiMarker").style.left = `calc(${Math.min(aqi,500)/500*100}% - 2px)`;
+
+  const P = [
+    ["PM2.5","pm2_5",15,"Fine particles; reach deep into the lungs"],
+    ["PM10","pm10",45,"Coarse particles such as road and desert dust"],
+    ["NO₂","nitrogen_dioxide",25,"Mostly from vehicles and burning fuel"],
+    ["SO₂","sulphur_dioxide",40,"From industry, brick kilns and diesel"],
+    ["O₃","ozone",100,"Ground-level ozone, worse on sunny afternoons"],
+    ["CO","carbon_monoxide",4000,"From incomplete burning of fuel"],
+    ["Dust","dust",null,"Mineral dust carried by wind"],
+    ["NH₃","ammonia",null,"Mostly from farming and fertiliser"],
+    ["Aerosol depth","aerosol_optical_depth",null,"Haze through the whole air column (unitless)"]
+  ];
+  $("pols").innerHTML = P.map(([name,k,who,note]) => {
+    const v = c[k], aod = k==="aerosol_optical_depth", unit = aod ? "" : "µg/m³";
+    let bar = "";
+    if(who && v!=null){
+      const ratio = v/who, pct = Math.min(ratio,4)/4*100;
+      const col = ratio<=1?"#2a9d4b":ratio<=2?"#e0a400":ratio<=3?"#e66a00":"#c62828";
+      bar = `<div class="bar"><i style="width:${pct}%;background:${col}"></i></div><div class="note">${r(ratio,1)}× WHO guideline (${who})</div>`;
+    }
+    return `<div class="pol"><div class="name">${name}</div><div class="val">${r(v, aod?2:1)} <small>${unit}</small>${delta("p_"+k, v, aod?2:1)}</div>${bar}<div class="note">${note}</div></div>`;
+  }).join("");
+
+  const h = d.hourly;
+  drawChart("aqi","aqiChart",{
+    type:"line",
+    data:{labels:h.time.map(t=>t.slice(8,10)+"/"+t.slice(5,7)+" "+t.slice(11,13)+"h"),
+      datasets:[{label:"US AQI",data:h.us_aqi,pointRadius:0,tension:.3,borderWidth:2.5,borderColor:css("--cobalt"),
+        segment:{borderColor:ctx=>{const c=aqiBand(ctx.p1.parsed.y)[2];return c==="#ffff00"?"#d4c200":c;}}}]},
+    options:{maintainAspectRatio:false,interaction:{mode:"index",intersect:false},
+      plugins:{legend:{display:false},tooltip:{callbacks:{afterLabel:ctx=>aqiBand(ctx.parsed.y)[1]}}},
+      scales:{x:{ticks:{maxTicksLimit:6}},y:{beginAtZero:true,title:{display:true,text:"US AQI"}}}}
+  });
+}
+
+/* ---------- Open-Meteo weather ---------- */
+function renderWeather(d){
+  const c = d.current, w = wmo(c.weather_code, c.is_day);
+  $("wIcon").textContent = w.icon;
+  $("wTemp").innerHTML = `${r(c.temperature_2m,1)}°C${delta("t", c.temperature_2m, 1, "°")}`;
+  $("wDesc").className = "";
+  $("wDesc").textContent = `${w.text}, feels like ${r(c.apparent_temperature,1)}°C`;
+  const f = [
+    ["Humidity",`${r(c.relative_humidity_2m)}%`, delta("rh", c.relative_humidity_2m, 0, "%")],
+    ["Dew point",`${r(c.dew_point_2m,1)}°C`, delta("dp", c.dew_point_2m, 1)],
+    ["Wind",`${r(c.wind_speed_10m,1)} km/h ${compass(c.wind_direction_10m)} (${r(c.wind_direction_10m)}°)`, delta("ws", c.wind_speed_10m, 1)],
+    ["Gusts",`${r(c.wind_gusts_10m,1)} km/h`, delta("wg", c.wind_gusts_10m, 1)],
+    ["Sea-level pressure",`${r(c.pressure_msl,1)} hPa`, delta("p", c.pressure_msl, 1)],
+    ["Surface pressure",`${r(c.surface_pressure,1)} hPa`, ""],
+    ["Cloud cover",`${r(c.cloud_cover)}%`, delta("cc", c.cloud_cover, 0, "%")],
+    ["Visibility", c.visibility!=null ? `${r(c.visibility/1000,1)} km` : "–", delta("vis", c.visibility!=null?c.visibility/1000:null, 1)],
+    ["UV index", r(c.uv_index,1), ""],
+    ["Precipitation",`${r(c.precipitation,1)} mm`, ""],
+    ["Model reading", hm(c.time) + " PKT", ""],
+    ["Day or night", c.is_day ? "Day" : "Night", ""]
+  ];
+  $("wFacts").innerHTML = f.map(([k,v,dl])=>`<div><small>${k}</small><b>${v}${dl}</b></div>`).join("");
+
+  // index of current hour
+  const nowH = c.time.slice(0,13);
+  let i0 = d.hourly.time.findIndex(t => t.slice(0,13) >= nowH); if(i0<0) i0=0;
+  const H = d.hourly, at = k => H[k] ? H[k][i0] : null;
+
+  const A = [
+    ["Low / mid / high cloud", `${r(at("cloud_cover_low"))}% / ${r(at("cloud_cover_mid"))}% / ${r(at("cloud_cover_high"))}%`],
+    ["Solar radiation", `${r(at("shortwave_radiation"))} W/m²`],
+    ["Direct / diffuse sun", `${r(at("direct_radiation"))} / ${r(at("diffuse_radiation"))} W/m²`],
+    ["Evaporation (ET₀)", `${r(at("et0_fao_evapotranspiration"),2)} mm/h`],
+    ["Vapour pressure deficit", `${r(at("vapour_pressure_deficit"),2)} kPa`],
+    ["Soil surface temp", `${r(at("soil_temperature_0cm"),1)}°C`],
+    ["Soil temp at 18 cm", `${r(at("soil_temperature_18cm"),1)}°C`],
+    ["Topsoil moisture", `${r(at("soil_moisture_0_to_1cm"),3)} m³/m³`],
+    ["Storm energy (CAPE)", `${r(at("cape"))} J/kg`],
+    ["Freezing level", `${r(at("freezing_level_height"))} m`],
+    ["Mixing layer height", `${r(at("boundary_layer_height"))} m`],
+    ["Wind at 80 m / 120 m", `${r(at("wind_speed_80m"),1)} / ${r(at("wind_speed_120m"),1)} km/h`],
+    ["Temperature at 80 m", `${r(at("temperature_80m"),1)}°C`]
+  ];
+  const blh = at("boundary_layer_height");
+  if(blh!=null) A.push(["Smog trapping", blh<300?"High: shallow mixing layer traps pollution":blh<800?"Moderate":"Low: air is mixing well"]);
+  $("atmo").innerHTML = A.map(([k,v])=>`<div><small>${k}</small><b>${v}</b></div>`).join("");
+
+  const sl = a => a.slice(i0, i0+48);
+  drawChart("temp","tempChart",{
+    data:{labels:sl(H.time).map(t=>t.slice(8,10)+"/"+t.slice(5,7)+" "+t.slice(11,13)+"h"),
+      datasets:[
+        {type:"line",label:"Temperature (°C)",data:sl(H.temperature_2m),borderColor:css("--ochre"),pointRadius:0,tension:.35,borderWidth:2.5,yAxisID:"y"},
+        {type:"bar",label:"Rain chance (%)",data:sl(H.precipitation_probability),backgroundColor:css("--tile")+"88",yAxisID:"y1"}
+      ]},
+    options:{maintainAspectRatio:false,interaction:{mode:"index",intersect:false},
+      scales:{x:{ticks:{maxTicksLimit:8}},y:{title:{display:true,text:"°C"}},y1:{position:"right",min:0,max:100,grid:{drawOnChartArea:false},title:{display:true,text:"%"}}}}
+  });
+
+  const dd = d.daily;
+  const today = c.time.slice(0,10);
+  let ti = dd.time.indexOf(today); if(ti<0) ti = 7;
+
+  drawChart("trend","trendChart",{
+    type:"line",
+    data:{labels:dd.time.map((t,i)=> i===ti ? "Today" : new Date(t+"T12:00").toLocaleDateString("en-GB",{day:"numeric",month:"short"})),
+      datasets:[
+        {label:"High (°C)",data:dd.temperature_2m_max,borderColor:css("--ochre"),backgroundColor:css("--ochre"),tension:.3,
+          segment:{borderDash:ctx=>ctx.p0DataIndex>=ti?[6,4]:undefined}},
+        {label:"Low (°C)",data:dd.temperature_2m_min,borderColor:css("--cobalt"),backgroundColor:css("--cobalt"),tension:.3,
+          segment:{borderDash:ctx=>ctx.p0DataIndex>=ti?[6,4]:undefined}}
+      ]},
+    options:{maintainAspectRatio:false,interaction:{mode:"index",intersect:false},
+      plugins:{subtitle:{display:true,text:"Solid line: recorded. Dashed line: forecast."}},
+      scales:{y:{title:{display:true,text:"°C"}}}}
+  });
+
+  const rows = dd.time.slice(ti).map((t,j)=>{
+    const i = ti+j, w = wmo(dd.weather_code[i]);
+    const day = j===0 ? "Today" : new Date(t+"T12:00").toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"});
+    return `<tr><td><b>${day}</b></td><td class="ic" title="${w.text}">${w.icon}</td><td>${w.text}</td>
+      <td><b>${r(dd.temperature_2m_max[i])}°</b> / ${r(dd.temperature_2m_min[i])}°</td>
+      <td>${r(dd.apparent_temperature_max[i])}° / ${r(dd.apparent_temperature_min[i])}°</td>
+      <td class="rain">${r(dd.precipitation_probability_max[i])}%</td><td>${r(dd.precipitation_sum[i],1)} mm${dd.precipitation_hours[i]?` (${r(dd.precipitation_hours[i])} h)`:""}</td>
+      <td>${r(dd.wind_speed_10m_max[i])} km/h ${compass(dd.wind_direction_10m_dominant[i])}<br><small>gusts ${r(dd.wind_gusts_10m_max[i])}</small></td>
+      <td>${r(dd.sunshine_duration[i]/3600,1)} h</td><td>${r(dd.uv_index_max[i],1)}</td><td>${r(dd.et0_fao_evapotranspiration[i],1)} mm</td></tr>`;
+  }).join("");
+  $("daily").innerHTML = `<thead><tr><th>Day</th><th></th><th>Conditions</th><th>High / low</th><th>Feels like</th><th>Rain chance</th><th>Rain total</th><th>Max wind</th><th>Sunshine</th><th>UV max</th><th>Evaporation</th></tr></thead><tbody>${rows}</tbody>`;
+
+  const uv = dd.uv_index_max[ti];
+  const uvTxt = uv<3?"Low":uv<6?"Moderate":uv<8?"High":uv<11?"Very high":"Extreme";
+  const past = dd.temperature_2m_max.slice(0,ti).filter(x=>x!=null);
+  const pastAvg = past.length ? past.reduce((a,b)=>a+b,0)/past.length : null;
+  $("sun").innerHTML = `
+    <dt>Sunrise</dt><dd>${hm(dd.sunrise[ti])}</dd>
+    <dt>Sunset</dt><dd>${hm(dd.sunset[ti])}</dd>
+    <dt>Daylight</dt><dd>${dur(dd.daylight_duration[ti])}</dd>
+    <dt>Sunshine expected</dt><dd>${r(dd.sunshine_duration[ti]/3600,1)} h</dd>
+    <dt>Solar energy</dt><dd>${r(dd.shortwave_radiation_sum[ti],1)} MJ/m²</dd>
+    <dt>UV max</dt><dd>${r(uv,1)} (${uvTxt})</dd>
+    <dt>Today vs last week</dt><dd>${pastAvg!=null ? `${dd.temperature_2m_max[ti]>=pastAvg?"+":""}${r(dd.temperature_2m_max[ti]-pastAvg,1)}°C vs 7-day average high` : "–"}</dd>
+    <dt>Tomorrow</dt><dd>${hm(dd.sunrise[ti+1])} to ${hm(dd.sunset[ti+1])}</dd>`;
+  return d;
+}
+
+function renderModels(d){
+  const H = d.hourly, keys = Object.keys(H).filter(k=>k.startsWith("temperature_2m_"));
+  const names = {ecmwf_ifs025:"ECMWF (Europe)",gfs_seamless:"GFS (USA)",icon_seamless:"ICON (Germany)"};
+  const cols = [css("--cobalt"), css("--ochre"), css("--tile")];
+  drawChart("models","modelChart",{
+    type:"line",
+    data:{labels:H.time.map(t=>t.slice(8,10)+"/"+t.slice(5,7)+" "+t.slice(11,13)+"h"),
+      datasets:keys.map((k,i)=>({label:names[k.replace("temperature_2m_","")]||k,data:H[k],borderColor:cols[i%3],backgroundColor:cols[i%3],pointRadius:0,tension:.3,borderWidth:2}))},
+    options:{maintainAspectRatio:false,interaction:{mode:"index",intersect:false},scales:{x:{ticks:{maxTicksLimit:7}},y:{title:{display:true,text:"°C"}}}}
+  });
+}
+
+/* ---------- wttr.in ---------- */
+let wttrData = null, omData = null;
+function renderWttr(d){
+  wttrData = d;
+  const c = d.current_condition[0], desc = c.weatherDesc?.[0]?.value?.trim() || "–";
+  $("wtIcon").textContent = wttrIcon(desc);
+  $("wtTemp").innerHTML = `${c.temp_C}°C${delta("wt_t", +c.temp_C, 0, "°")}`;
+  $("wtDesc").className = "";
+  $("wtDesc").textContent = `${desc}, feels like ${c.FeelsLikeC}°C`;
+  const day = d.weather?.[0] || {};
+  const f = [
+    ["Humidity", `${c.humidity}%`], ["Wind", `${c.windspeedKmph} km/h ${c.winddir16Point}`],
+    ["Pressure", `${c.pressure} hPa`], ["Visibility", `${c.visibility} km`],
+    ["Cloud cover", `${c.cloudcover}%`], ["UV index", c.uvIndex],
+    ["Precipitation", `${c.precipMM} mm`], ["Today high / low", `${day.maxtempC??"–"}° / ${day.mintempC??"–"}°`],
+    ["Sun hours today", `${day.sunHour??"–"} h`], ["Observed", c.localObsDateTime || c.observation_time + " UTC"]
+  ];
+  $("wtFacts").innerHTML = f.map(([k,v])=>`<div><small>${k}</small><b>${esc(v)}</b></div>`).join("");
+  const a = day.astronomy?.[0];
+  if(a) $("moon").innerHTML = `
+    <dt>Phase</dt><dd>${esc(a.moon_phase)}</dd>
+    <dt>Illumination</dt><dd>${esc(a.moon_illumination)}%</dd>
+    <dt>Moonrise</dt><dd>${esc(a.moonrise)}</dd>
+    <dt>Moonset</dt><dd>${esc(a.moonset)}</dd>`;
+  else $("moon").innerHTML = `<dt>Moon</dt><dd>Not available</dd>`;
+}
+function renderCompare(){
+  if(!wttrData || !omData){ return; }
+  const w = wttrData.current_condition[0], o = omData.current;
+  const rows = [
+    ["Temperature", `${r(o.temperature_2m,1)}°C`, `${w.temp_C}°C`, o.temperature_2m - w.temp_C, "°C"],
+    ["Feels like", `${r(o.apparent_temperature,1)}°C`, `${w.FeelsLikeC}°C`, o.apparent_temperature - w.FeelsLikeC, "°C"],
+    ["Humidity", `${r(o.relative_humidity_2m)}%`, `${w.humidity}%`, o.relative_humidity_2m - w.humidity, "%"],
+    ["Wind", `${r(o.wind_speed_10m,1)} km/h`, `${w.windspeedKmph} km/h`, o.wind_speed_10m - w.windspeedKmph, " km/h"],
+    ["Pressure", `${r(o.pressure_msl)} hPa`, `${w.pressure} hPa`, o.pressure_msl - w.pressure, " hPa"],
+    ["Cloud cover", `${r(o.cloud_cover)}%`, `${w.cloudcover}%`, o.cloud_cover - w.cloudcover, "%"]
+  ];
+  $("vs").innerHTML = `<thead><tr><th></th><th>Open-Meteo</th><th>wttr.in</th><th>Gap</th></tr></thead><tbody>` +
+    rows.map(([k,a,b,g,u])=>`<tr><td>${k}</td><td>${a}</td><td>${b}</td><td>${isNaN(g)?"–":(Math.abs(g)<0.05?"Same":`${r(Math.abs(g),1)}${u}`)}</td></tr>`).join("") + `</tbody>`;
+}
+
+/* ---------- News ---------- */
+async function loadNews(){
+  const settled = await Promise.allSettled([
+    ...URLS.news.map(async ([cat,url]) => {
+      const d = await getJSON(url);
+      if(d.status !== "ok") throw new Error(d.message || "feed error");
+      return d.items.map(it => {
+        let title = it.title || "", source = d.feed?.title || "";
+        const m = title.match(/^(.*) - ([^-]+)$/);
+        if(m && cat !== "Pakistan"){ title = m[1]; source = m[2]; }
+        if(cat==="Pakistan") source = "Dawn";
+        return {cat, title, source, link: it.link, time: Date.parse((it.pubDate||"").replace(" ","T")+"Z")};
+      });
+    }),
+    (async () => {
+      const d = await getJSON(URLS.gdelt);
+      return (d.articles||[]).map(a => {
+        const s = a.seendate || ""; const iso = `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}T${s.slice(9,11)}:${s.slice(11,13)}:${s.slice(13,15)}Z`;
+        return {cat:"Multan", title:a.title, source:a.domain, link:a.url, time:Date.parse(iso)};
+      });
+    })()
+  ]);
+  const all = settled.filter(s=>s.status==="fulfilled").flatMap(s=>s.value);
+  if(!all.length) throw new Error("no news");
+  const seenT = new Set();
+  newsItems = all.filter(n => n.title && n.link).filter(n => { const k = n.title.toLowerCase().slice(0,60); if(seenT.has(k)) return false; seenT.add(k); return true; })
+    .sort((a,b)=>(b.time||0)-(a.time||0));
+  newsItems.forEach(n => { n.isNew = !firstNewsLoad && !seenNews.has(n.link); seenNews.add(n.link); });
+  const fresh = newsItems.filter(n=>n.isNew).length;
+  firstNewsLoad = false;
+  cur.newsFresh = fresh;
+  renderNews();
+  return fresh;
+}
+function renderNews(){
+  const list = newsItems.filter(n => newsFilter==="all" || n.cat===newsFilter).slice(0,25);
+  $("news").innerHTML = list.length ? list.map(n => `<li>
+      <div><span class="tag">${esc(n.cat)}</span>${n.isNew?'<span class="tag new">New</span>':""}</div>
+      <a href="${esc(n.link)}" target="_blank" rel="noopener">${esc(n.title)}</a>
+      <div class="src">${esc(n.source)}${n.time?` | ${ago(n.time)}`:""}</div></li>`).join("")
+    : `<li class="loading">No headlines in this category right now.</li>`;
+}
+document.querySelectorAll(".tabs button").forEach(b => b.addEventListener("click", () => {
+  newsFilter = b.dataset.f;
+  document.querySelectorAll(".tabs button").forEach(x => x.setAttribute("aria-pressed", x===b ? "true" : "false"));
+  renderNews();
+}));
+
+/* ---------- Earthquakes ---------- */
+function km(a,b,c,d){ const R=6371,t=x=>x*Math.PI/180; const h=Math.sin(t(c-a)/2)**2+Math.cos(t(a))*Math.cos(t(c))*Math.sin(t(d-b)/2)**2; return 2*R*Math.asin(Math.sqrt(h)); }
+function renderQuakes(d){
+  const f = d.features || [];
+  $("quakes").innerHTML = f.length ? f.map(q => {
+    const [lon,lat] = q.geometry.coordinates, p = q.properties;
+    return `<li><a href="${esc(p.url)}" target="_blank" rel="noopener">M${r(p.mag,1)}: ${esc(p.place)}</a>
+      <div class="src">${Math.round(km(LAT,LON,lat,lon))} km from Multan | ${ago(p.time)}</div></li>`;
+  }).join("") : `<li>No earthquakes of magnitude 2.5 or more within 1,000 km in the past 30 days.</li>`;
+}
+
+/* ---------- Others ---------- */
+function renderElevation(d){ $("elev").textContent = `${Math.round(d.elevation[0])} m above sea level`; }
+function renderRates(d){
+  if(d.result !== "success") throw new Error("rates");
+  const list = [["USD","US dollar"],["EUR","Euro"],["GBP","Pound"],["SAR","Saudi riyal"],["AED","UAE dirham"],["CNY","Chinese yuan"]];
+  $("rates").innerHTML = list.map(([k,n])=>{ const v = 1/d.rates[k]; return `<div class="rate"><small>1 ${k}</small><b>Rs ${r(v,2)}${delta("fx_"+k, v, 2)}</b><small>${n}</small></div>`; }).join("");
+  $("ratesTime").textContent = `Rates published ${new Date(d.time_last_update_unix*1000).toLocaleString("en-GB",{timeZone:TZ,dateStyle:"medium",timeStyle:"short"})}; the free feed updates once a day.`;
+}
+function renderCountry(d){
+  const curr = Object.entries(d.currencies||{}).map(([k,v])=>`${v.name} (${k})`).join(", ");
+  $("country").innerHTML = `
+    <dt>Country</dt><dd>${d.flag||""} ${esc(d.name.common)}</dd>
+    <dt>Capital</dt><dd>${esc((d.capital||[]).join(", "))}</dd>
+    <dt>Population</dt><dd>${d.population.toLocaleString("en")}</dd>
+    <dt>Area</dt><dd>${d.area.toLocaleString("en")} km²</dd>
+    <dt>Currency</dt><dd>${esc(curr)}</dd>
+    <dt>Languages</dt><dd>${esc(Object.values(d.languages||{}).join(", "))}</dd>
+    <dt>Dialing code</dt><dd>${d.idd.root}${(d.idd.suffixes||[""])[0]}</dd>
+    <dt>Neighbours</dt><dd>${esc((d.borders||[]).join(", "))}</dd>`;
+}
+function renderWiki(d){
+  const img = d.thumbnail ? `<img src="${esc(d.thumbnail.source)}" alt="Multan">` : "";
+  const el = $("wiki"); el.className = "";
+  el.innerHTML = `${img}<p>${esc(d.extract)}</p><p style="margin-top:10px"><a href="${esc(d.content_urls.desktop.page)}" target="_blank" rel="noopener">Read more on Wikipedia</a></p>`;
+}
+
+/* ---------- Change summary ---------- */
+function renderChanges(){
+  const el = $("changes");
+  if(!prev){ prev = {...cur}; return; }
+  const items = [
+    ["Temperature","t",1,"°C"],["AQI","aqi",0,""],["PM2.5","p_pm2_5",1," µg/m³"],["Humidity","rh",0,"%"],
+    ["Wind","ws",1," km/h"],["Pressure","p",1," hPa"],["wttr.in temp","wt_t",0,"°C"]
+  ].map(([n,k,dec,u]) => {
+    if(cur[k]==null || prev[k]==null) return "";
+    const diff = cur[k]-prev[k];
+    if(Math.abs(diff) < Math.pow(10,-dec)/2) return `<span class="chg">${n} <span class="same">unchanged</span></span>`;
+    return `<span class="chg">${n} <span class="${diff>0?"up":"down"}">${diff>0?"▲":"▼"} ${Math.abs(diff).toFixed(dec)}${u}</span></span>`;
+  }).filter(Boolean);
+  const nf = cur.newsFresh || 0;
+  items.push(`<span class="chg">News <span class="${nf?"up":"same"}">${nf ? nf+" new headline"+(nf>1?"s":"") : "no new headlines"}</span></span>`);
+  el.innerHTML = `<b>Since last refresh:</b> ${items.join("")}`;
+  el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash");
+  prev = {...cur};
+}
+
+/* ---------- Load everything ---------- */
+async function loadAll(){
+  const btn = $("refresh"); btn.disabled = true; btn.textContent = "Refreshing…";
+  cur = {};
+  const jobs = [
+    ["Air quality", URLS.air, renderAir, () => { $("aqiCat").textContent="Air quality data unavailable"; fail("pols","air quality data"); }],
+    ["Open-Meteo weather", URLS.weather, d => { omData = renderWeather(d); }, () => { $("wDesc").innerHTML='<span class="err">Couldn’t load weather.</span>'; fail("daily","the forecast"); fail("sun","sun times"); fail("atmo","atmosphere details"); }],
+    ["wttr.in", URLS.wttr, renderWttr, () => { $("wtDesc").innerHTML='<span class="err">wttr.in didn’t respond. It’s a free service and is sometimes busy.</span>'; $("moon").innerHTML=""; }],
+    ["Forecast models", URLS.models, renderModels, () => {}],
+    ["Earthquakes", URLS.quakes(), renderQuakes, () => fail("quakes","earthquake data")],
+    ["Elevation", URLS.elevation, renderElevation, () => { $("elev").textContent = "elevation unavailable"; }],
+    ["Exchange rates", URLS.rates, renderRates, () => fail("rates","exchange rates")],
+    ["Country", URLS.country, renderCountry, () => fail("country","country details")],
+    ["Wikipedia", URLS.wiki, renderWiki, () => fail("wiki","the city summary")]
+  ];
+  const tasks = jobs.map(async ([name, url, ok, bad]) => {
+    try { ok(await getJSON(url)); return name; } catch(e){ console.error(name, e); bad(); throw name; }
+  });
+  tasks.push(loadNews().then(()=>"News").catch(e => { console.error("news", e); if(!newsItems.length) fail("news","headlines"); throw "News"; }));
+  const results = await Promise.allSettled(tasks);
+  let failed = results.filter(x=>x.status==="rejected").map(x=>x.reason);
+  let total = results.length, mode = "direct";
+  if(failed.length === results.length){
+    btn.textContent = "Searching the web…";
+    try { await loadViaClaude(); mode = "claude"; }
+    catch(e){ console.error("Claude fallback", e); }
+  }
+  $("previewMode").hidden = mode !== "claude";
+  $("offline").hidden = !(failed.length === results.length && mode !== "claude");
+  if(mode==="direct") renderCompare();
+  renderChanges();
+  const time = new Date().toLocaleTimeString("en-GB",{timeZone:TZ,hour:"2-digit",minute:"2-digit",second:"2-digit"});
+  $("updated").textContent = mode==="claude" ? `Updated ${time} via web search` : `Updated ${time}` + (failed.length ? ` (${failed.length} source${failed.length>1?"s":""} failed)` : "");
+  const li = document.createElement("li");
+  li.textContent = mode==="claude"
+    ? `${time}: direct APIs blocked, loaded via Claude web search` + (cur.newsFresh ? `, ${cur.newsFresh} new headlines` : "")
+    : `${time}: ${total-failed.length}/${total} sources loaded` + (failed.length ? `, failed: ${failed.join(", ")}` : "") + (cur.newsFresh ? `, ${cur.newsFresh} new headlines` : "");
+  $("log").prepend(li);
+  nextAt = Date.now() + REFRESH_MS;
+  btn.disabled = false; btn.textContent = "Refresh now";
+}
+
+/* ---------- Fallback: Claude + web search (works inside the Claude preview) ---------- */
+async function loadViaClaude(){
+  const today = new Date().toLocaleString("en-GB",{timeZone:TZ,dateStyle:"full",timeStyle:"short"});
+  const prompt = `It is now ${today} in Multan, Pakistan (PKT). Use web search to find the CURRENT, real data for Multan:
+1. Current weather (e.g. from timeanddate.com, AccuWeather or weather.com).
+2. Current air quality (e.g. from IQAir or aqicn.org).
+3. The forecast for the next 5 days.
+4. The 8 most recent news headlines about Multan or Punjab smog/weather, with real URLs.
+5. Today's USD to PKR exchange rate.
+Never invent values; use null for anything you cannot find.
+Respond with ONLY a JSON object, no markdown fences, no other text, in exactly this shape:
+{"weather":{"temp_c":0,"feels_like_c":0,"condition":"","humidity_pct":0,"wind_kmh":0,"wind_dir":"","pressure_hpa":0,"visibility_km":0,"uv_index":0,"source":""},
+"air":{"us_aqi":0,"pm25":0,"pm10":0,"main_pollutant":"","source":""},
+"forecast":[{"date":"YYYY-MM-DD","condition":"","high_c":0,"low_c":0,"rain_chance_pct":0}],
+"sun":{"sunrise":"HH:MM","sunset":"HH:MM"},
+"news":[{"title":"","source":"","url":"","published":"ISO date or null"}],
+"usd_pkr":0,"usd_pkr_source":""}`;
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:1000,
+      messages:[{role:"user", content: prompt}],
+      tools:[{type:"web_search_20250305", name:"web_search"}] })
+  });
+  const data = await res.json();
+  const text = (data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("\n").replace(/```json|```/g,"");
+  const a = text.indexOf("{"), b = text.lastIndexOf("}");
+  if(a<0 || b<0) throw new Error("No JSON in reply");
+  renderFromClaude(JSON.parse(text.slice(a, b+1)));
+}
+
+function renderFromClaude(j){
+  const w = j.weather || {}, air = j.air || {};
+  // Air quality
+  if(air.us_aqi!=null){
+    const aqi = Math.round(air.us_aqi), b = aqiBand(aqi), card = $("aqiCard");
+    card.style.setProperty("--aqi-c", b[2]); card.classList.toggle("aqi-dark", b[3]);
+    $("aqiNum").innerHTML = `${aqi}${delta("aqi", aqi, 0)}`;
+    $("aqiCat").textContent = `US AQI: ${b[1]}`;
+    $("aqiAdvice").textContent = b[4];
+    $("aqiEuro").textContent = (air.main_pollutant ? `Main pollutant: ${air.main_pollutant}. ` : "") + (air.source ? `Source: ${air.source}.` : "");
+    $("aqiMarker").style.left = `calc(${Math.min(aqi,500)/500*100}% - 2px)`;
+  } else { $("aqiCat").textContent = "Air quality not found in this search"; }
+  const pols = [["PM2.5", air.pm25, 15, "p_pm2_5"], ["PM10", air.pm10, 45, "p_pm10"]].filter(p=>p[1]!=null);
+  $("pols").innerHTML = pols.length ? pols.map(([n,v,who,k]) => {
+    const ratio = v/who, col = ratio<=1?"#2a9d4b":ratio<=2?"#e0a400":ratio<=3?"#e66a00":"#c62828";
+    return `<div class="pol"><div class="name">${n}</div><div class="val">${r(v,1)} <small>µg/m³</small>${delta(k, v, 1)}</div>
+      <div class="bar"><i style="width:${Math.min(ratio,4)/4*100}%;background:${col}"></i></div><div class="note">${r(ratio,1)}× WHO guideline (${who})</div></div>`;
+  }).join("") : `<span class="loading">Pollutant levels weren’t found in this search.</span>`;
+
+  // Weather
+  $("wIcon").textContent = wttrIcon(w.condition);
+  $("wTemp").innerHTML = w.temp_c!=null ? `${r(w.temp_c,1)}°C${delta("t", w.temp_c, 1, "°")}` : "–";
+  $("wDesc").className = "";
+  $("wDesc").textContent = `${w.condition || "Conditions unknown"}${w.feels_like_c!=null ? `, feels like ${r(w.feels_like_c,1)}°C` : ""}`;
+  $("wFacts").innerHTML = [
+    ["Humidity", w.humidity_pct!=null ? `${r(w.humidity_pct)}%` : "–", delta("rh", w.humidity_pct, 0, "%")],
+    ["Wind", w.wind_kmh!=null ? `${r(w.wind_kmh,1)} km/h ${w.wind_dir||""}` : "–", delta("ws", w.wind_kmh, 1)],
+    ["Pressure", w.pressure_hpa!=null ? `${r(w.pressure_hpa)} hPa` : "–", delta("p", w.pressure_hpa, 1)],
+    ["Visibility", w.visibility_km!=null ? `${r(w.visibility_km,1)} km` : "–", ""],
+    ["UV index", r(w.uv_index,1), ""],
+    ["Source", esc(w.source || "web search"), ""]
+  ].map(([k,v,dl])=>`<div><small>${k}</small><b>${v}${dl}</b></div>`).join("");
+  $("wtDesc").className = "loading";
+  $("wtDesc").textContent = "The second source isn’t reachable in this viewer.";
+
+  // Forecast
+  const fc = (j.forecast||[]).filter(f=>f && f.date);
+  $("daily").innerHTML = fc.length ? `<thead><tr><th>Day</th><th></th><th>Conditions</th><th>High / low</th><th>Rain chance</th></tr></thead><tbody>` +
+    fc.map((f,i)=>`<tr><td><b>${i===0?"Today":new Date(f.date+"T12:00").toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"})}</b></td>
+      <td class="ic">${wttrIcon(f.condition)}</td><td>${esc(f.condition||"–")}</td><td><b>${r(f.high_c)}°</b> / ${r(f.low_c)}°</td><td class="rain">${f.rain_chance_pct!=null?r(f.rain_chance_pct)+"%":"–"}</td></tr>`).join("") + `</tbody>`
+    : `<tbody><tr><td class="loading">Forecast not found in this search.</td></tr></tbody>`;
+
+  // Sun
+  const s = j.sun || {};
+  $("sun").innerHTML = `<dt>Sunrise</dt><dd>${esc(s.sunrise||"–")}</dd><dt>Sunset</dt><dd>${esc(s.sunset||"–")}</dd>`;
+
+  // News
+  newsItems = (j.news||[]).filter(n=>n && n.title && n.url).map(n=>({cat:"Multan", title:n.title, source:n.source||"", link:n.url, time:n.published?Date.parse(n.published):null}));
+  newsItems.forEach(n => { n.isNew = !firstNewsLoad && !seenNews.has(n.link); seenNews.add(n.link); });
+  firstNewsLoad = false;
+  cur.newsFresh = newsItems.filter(n=>n.isNew).length;
+  newsFilter = "all";
+  document.querySelectorAll(".tabs button").forEach(x => x.setAttribute("aria-pressed", x.dataset.f==="all" ? "true" : "false"));
+  renderNews();
+
+  // Rate
+  if(j.usd_pkr){
+    $("rates").innerHTML = `<div class="rate"><small>1 USD</small><b>Rs ${r(j.usd_pkr,2)}${delta("fx_USD", j.usd_pkr, 2)}</b><small>US dollar</small></div>`;
+    $("ratesTime").textContent = j.usd_pkr_source ? `Source: ${j.usd_pkr_source}` : "";
+  }
+
+  // Sections that need the direct APIs
+  const note = "Needs the downloaded file opened in a browser.";
+  ["atmo","quakes","country","wiki","moon","wtFacts"].forEach(id => { $(id).innerHTML = `<span class="loading">${note}</span>`; });
+  $("vs").innerHTML = `<tbody><tr><td class="loading">${note}</td></tr></tbody>`;
+  $("elev").textContent = "about 122 m above sea level";
+}
+
+$("refresh").addEventListener("click", () => { clearTimeout(window._t); loadAll().then(schedule); });
+function schedule(){ clearTimeout(window._t); window._t = setTimeout(() => loadAll().then(schedule), REFRESH_MS); }
+tickClock(); setInterval(tickClock, 1000);
+loadAll().then(schedule);
+</script>
+</body>
+</html>
